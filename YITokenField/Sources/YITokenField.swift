@@ -222,6 +222,7 @@ extension YITokenField {
     }
     
     public func appendTokens(_ newTokens:[YIToken]) {
+        guard newTokens.count > 0 else { return }
         var index:Int
         if hasTail {
             index = tokens.count - 2
@@ -245,6 +246,7 @@ extension YITokenField {
     }
     
     public func deleteTokens(indexes:[Int]) {
+        guard indexes.count > 0 else { return }
         var paths:[IndexPath] = []
         var popTokens:[YIToken] = []
         for item in indexes {
