@@ -82,6 +82,8 @@ class YITokenField: UIView, UICollectionViewDataSource, UICollectionViewDelegate
     
     private
     var collectionView:UICollectionView = UICollectionView(frame: CGRect.zero, collectionViewLayout: YITokenFieldLayout())
+    private
+    var updating:Bool = false
     
     // 默认可删除已选择的高亮选项
     var deleteHighlightEnable:Bool = true
@@ -217,8 +219,30 @@ class YITokenField: UIView, UICollectionViewDataSource, UICollectionViewDelegate
 
 // MARK: Action
 extension YITokenField {
+    private func perform(updates:@escaping (() -> Void), completion:(() -> Void)? = nil) {
+        if updating != false { // 上一个操作还未更新完毕，稍后再尝试
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.perform(updates: updates, completion: completion)
+            }
+            return
+        }
+        
+        updating = true
+        UIView.setAnimationsEnabled(false)// 禁用隐式动画
+        collectionView.performBatchUpdates({
+            updates()
+        }, completion: {[weak self] finished in
+            self?.updating = !finished
+            self?.updateHeight()
+            UIView.setAnimationsEnabled(true)
+            completion?()
+        })
+    }
+    
     public func reload() {
-        collectionView.reloadData()
+        perform(updates: {[weak self] in
+            self?.collectionView.reloadData()
+        })
     }
     
     public func appendTokens(_ newTokens:[YIToken]) {
@@ -235,14 +259,11 @@ extension YITokenField {
             let indexPath = IndexPath(item: index + i, section: 0)
             paths.append(indexPath)
         }
-        DispatchQueue.main.async {
-            self.tokens.insert(contentsOf: newTokens, at: index)
-            UIView.performWithoutAnimation { // 禁用隐式动画
-                self.collectionView.insertItems(at: paths)
-            }
-            self.delegate?.tokenField(self, didAdd: newTokens)
-            self.updateHeight()
-        }
+        tokens.insert(contentsOf: newTokens, at: index)
+        delegate?.tokenField(self, didAdd: newTokens)
+        perform(updates: {[weak self] in
+            self?.collectionView.insertItems(at: paths)
+        })
     }
     
     public func deleteTokens(indexes:[Int]) {
@@ -262,11 +283,10 @@ extension YITokenField {
             let t = tokens.remove(at: item)
             popTokens.append(t)
         }
-        DispatchQueue.main.async {
-            self.collectionView.deleteItems(at: paths)
-            self.delegate?.tokenField(self, didRemove: popTokens)
-            self.updateHeight()
-        }
+        delegate?.tokenField(self, didRemove: popTokens)
+        perform(updates: {[weak self] in
+            self?.collectionView.deleteItems(at: paths)
+        })
     }
     
     @objc func textFieldWasUpdated() {
