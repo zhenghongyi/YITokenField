@@ -131,6 +131,9 @@ class YITokenField: UIView, UICollectionViewDataSource, UICollectionViewDelegate
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: "YITokenTailCell")
         
         self.collectionView = collectionView
+        
+        self.collectionView.dragDelegate = self
+        self.collectionView.dropDelegate = self
     }
     
     func register(_ tokenViewClass: AnyClass?) {
@@ -313,5 +316,81 @@ extension YITokenField: UITextFieldDelegate {
     
     func textFieldDidEndEditing(_ textField: UITextField) {
         delegate?.tokenFieldDidEndEditing(self)
+    }
+}
+
+extension YITokenField: UICollectionViewDragDelegate, UICollectionViewDropDelegate {
+    func collectionView(_ collectionView: UICollectionView, itemsForBeginning session: UIDragSession, at indexPath: IndexPath) -> [UIDragItem] {
+        let token = tokens[indexPath.row]
+        if token.type == .normal {
+            let itemProvider = NSItemProvider(object: token as NSItemProviderWriting)
+            let dragItem = UIDragItem(itemProvider: itemProvider)
+            dragItem.localObject = tokens[indexPath.row]
+            return [dragItem]
+        } else {
+            return []
+        }
+    }
+    
+    // 添加拖动的任务
+    // 下面的代码，一次拖动一个
+    // 可以通过这个方法，开始拖动后，继续添加拖动的任务
+    func collectionView(_ collectionView: UICollectionView, itemsForAddingTo session: UIDragSession, at indexPath: IndexPath, point: CGPoint) -> [UIDragItem] {
+        let token = tokens[indexPath.row]
+        let itemProvider = NSItemProvider(object: token as NSItemProviderWriting)
+        let dragItem = UIDragItem(itemProvider: itemProvider)
+        dragItem.localObject = tokens[indexPath.row]
+        return [dragItem]
+    }
+
+
+    func collectionView(_ collectionView: UICollectionView, dragSessionWillBegin session: UIDragSession) {
+        // 拖动开始的时机
+    }
+
+    func collectionView(_ collectionView: UICollectionView, dragSessionDidEnd session: UIDragSession) {
+        // 拖动结束的时机
+    }
+    
+    // MARK: UICollectionViewDropDelegate
+    
+    func collectionView(_ collectionView: UICollectionView, canHandle session: UIDropSession) -> Bool {
+        return true
+    }
+
+    func collectionView(_ collectionView: UICollectionView,
+                        dropSessionDidUpdate session: UIDropSession,
+                        withDestinationIndexPath destinationIndexPath: IndexPath?) -> UICollectionViewDropProposal {
+        guard let destinationIndexPath = destinationIndexPath,
+                tokens[destinationIndexPath.row].type == .normal else {
+            return UICollectionViewDropProposal(operation: .forbidden)
+        }
+        if collectionView.hasActiveDrag {
+            return UICollectionViewDropProposal(operation: .move, intent: .insertAtDestinationIndexPath)
+        }
+        else {
+            return UICollectionViewDropProposal(operation: .forbidden)
+        }
+     }
+
+     func collectionView(_ collectionView: UICollectionView, performDropWith coordinator: UICollectionViewDropCoordinator) {
+        if let destinationIndexPath = coordinator.destinationIndexPath, case UIDropOperation.move = coordinator.proposal.operation{
+            reorderItems(coordinator: coordinator, destinationIndexPath:destinationIndexPath, collectionView: collectionView)
+        }
+    }
+    
+    private func reorderItems(coordinator: UICollectionViewDropCoordinator, destinationIndexPath: IndexPath, collectionView: UICollectionView) {
+        let items = coordinator.items
+        if  items.count == 1, let item = items.first,
+            let sourceIndexPath = item.sourceIndexPath,
+            let localObject = item.dragItem.localObject as? YIToken {
+
+            collectionView.performBatchUpdates ({
+                tokens.remove(at: sourceIndexPath.item)
+                tokens.insert(localObject, at: destinationIndexPath.item)
+                collectionView.deleteItems(at: [sourceIndexPath])
+                collectionView.insertItems(at: [destinationIndexPath])
+            })
+        }
     }
 }

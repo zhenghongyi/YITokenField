@@ -13,7 +13,15 @@ enum YITokenType {
     case tail
 }
 
-public class YIToken {
+public class YIToken: NSObject, NSItemProviderWriting {
+    public static var writableTypeIdentifiersForItemProvider: [String] {
+        return ["YIToken"]
+    }
+    
+    public func loadData(withTypeIdentifier typeIdentifier: String, forItemProviderCompletionHandler completionHandler: @escaping @Sendable (Data?, Error?) -> Void) -> Progress? {
+        return Progress()
+    }
+    
     var type:YITokenType = .normal
     
     public var tokenWidth: CGFloat {

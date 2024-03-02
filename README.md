@@ -3,6 +3,7 @@ iOS上的TokenField控件，具有
 1. 可自定义token和对应token视图
 2. 可通过键盘删除所选token
 3. 可添加尾部视图
+4. 可拖动token视图来调整顺序
 
 使用示例
 
